@@ -5,10 +5,10 @@ const session = require("express-session");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ===== In-memory demo storage ===== */
+/* ===== In-memory storage ===== */
 const users = [];
 const comments = [];
-let pendingAction = null; // ← action "smuggled"
+let pendingAction = null; 
 
 /* ===== Middleware ===== */
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -18,37 +18,20 @@ app.use(session({
   saveUninitialized: true
 }));
 
-/* ===== NAIVE PROXY (simulated) ===== */
-function naiveProxy(req, res, next) {
-  // The proxy only checks the route & method
-  if (req.method === "POST" && req.path === "/comment") {
-    return next(); // allows blindly
-  }
-  next();
-}
-
-app.use(naiveProxy);
-
 /* ===== Routes ===== */
 
 app.get("/", (req, res) => {
   res.send(`
     <h2>Forum Demo</h2>
-    <a href="/register">Register</a> |
-    <a href="/login">Login</a>
+    <p>Simulez une attaque HTTP Smuggling pédagogique.</p>
+    <a href="/register"><button>Register</button></a> 
+    <a href="/login"><button>Login</button></a>
   `);
 });
 
-/* ===== Register ===== */
+/* ===== Register & Login ===== */
 app.get("/register", (req, res) => {
-  res.send(`
-    <h3>Register</h3>
-    <form method="POST">
-      <input name="username" required />
-      <input name="password" required />
-      <button>Register</button>
-    </form>
-  `);
+  res.send(`<h3>Register</h3><form method="POST"><input name="username" placeholder="User" required /><input name="password" type="password" placeholder="Pass" required /><button>Create Account</button></form>`);
 });
 
 app.post("/register", (req, res) => {
@@ -56,90 +39,71 @@ app.post("/register", (req, res) => {
   res.redirect("/login");
 });
 
-/* ===== Login ===== */
 app.get("/login", (req, res) => {
-  res.send(`
-    <h3>Login</h3>
-    <form method="POST">
-      <input name="username" required />
-      <input name="password" required />
-      <button>Login</button>
-    </form>
-  `);
+  res.send(`<h3>Login</h3><form method="POST"><input name="username" placeholder="User" required /><input name="password" type="password" placeholder="Pass" required /><button>Login</button></form>`);
 });
 
 app.post("/login", (req, res) => {
-  const u = users.find(
-    x => x.username === req.body.username && x.password === req.body.password
-  );
-  
-  if (!u) return res.send("Invalid login");
+  const u = users.find(x => x.username === req.body.username && x.password === req.body.password);
+  if (!u) return res.send("Invalid login. <a href='/login'>Try again</a>");
 
-  // On crée la session normalement
   req.session.user = u.username;
 
-  /* 🔥 SIMULATION DU SMUGGLING RÉUSSI */
-  // Si l'attaquant a activé le piège, la victime poste "malgré elle" ses infos
+  // 🔥 VÉRIFICATION DU PIÈGE (SMUGGLING)
   if (pendingAction === "LEAK_NEXT_LOGIN") {
-    const fakeSessionId = Math.random().toString(36).substring(2, 15); // Simule un cookie de session
-    
+    const fakeSessionId = "sess_" + Math.random().toString(36).substring(2, 10);
     comments.push({
-      user: u.username, // <--- C'est la victime qui "parle" !
-      content: `⚠️ [SESSION_HIJACKED] Ma session a été capturée ! 
-                Détails : { User: ${u.username}, Password: ${u.password}, SessionID: ${fakeSessionId} }`
+      user: u.username, 
+      content: `🚩 [DATA_LEAK] Ma session a été compromise ! Détails -> User: ${u.username}, Password: ${u.password}, Token: ${fakeSessionId}`
     });
-    
-    pendingAction = null; // On réinitialise le piège après la capture
+    pendingAction = null; // Désactive le piège après réussite
   }
 
   res.redirect("/forum");
 });
 
-/* ===== Forum ===== */
+/* ===== Forum & Logout ===== */
 app.get("/forum", (req, res) => {
   if (!req.session.user) return res.redirect("/login");
 
   res.send(`
-    <h2>Forum</h2>
-    <p>Logged as <b>${req.session.user}</b></p>
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <h2>Forum</h2>
+        <a href="/logout"><button>Logout</button></a>
+    </div>
+    <p>Logged as: <b>${req.session.user}</b></p>
 
     <form method="POST" action="/comment">
-      <textarea name="content" required></textarea><br>
-      <button>Post</button>
+      <p>Post a comment (or try your smuggling payload):</p>
+      <textarea name="content" rows="5" cols="40" required placeholder="Write here..."></textarea><br>
+      <button type="submit">Post Comment</button>
     </form>
-
     <hr>
-
-    ${comments.map(c =>
-      `<p><b>${c.user}</b>: ${c.content}</p>`
-    ).join("")}
+    <h3>Recent Posts</h3>
+    ${comments.map(c => `<div style="border:1px solid #ccc; margin:5px; padding:5px;"><b>${c.user}:</b><pre>${c.content}</pre></div>`).reverse().join("")}
   `);
 });
 
-/* ===== COMMENT (VULNERABLE BY DESIGN) ===== */
-/* ===== COMMENT (VULNERABLE BY DESIGN) ===== */
 app.post("/comment", (req, res) => {
   const text = req.body.content;
 
-  // Simulation d'un "Front-end" qui a laissé passer une requête cachée dans le corps
-  // On cherche si le texte contient une structure de requête HTTP
-  if (text.includes("POST /leak HTTP/1.1")) {
-    console.log("⚠️ SMUGGLING DETECTED: Une requête cachée a été trouvée dans le corps du message !");
-    
-    // On extrait l'instruction spécifique (ex: X-Smuggle: capture)
-    if (text.includes("X-Smuggle: capture-next-login")) {
-      pendingAction = "LEAK_NEXT_LOGIN";
-    }
+  // Détection du Smuggling
+  if (text.includes("POST /") || text.includes("X-Smuggle")) {
+    console.log("⚠️ Smuggling Attempt Detected in comments");
+    pendingAction = "LEAK_NEXT_LOGIN";
   }
 
   comments.push({
     user: req.session.user || "Anonymous",
-    content: text // Le texte brut s'affiche, montrant la "charge utile"
+    content: text
   });
 
   res.redirect("/forum");
 });
-/* ===== Start ===== */
-app.listen(PORT, () => {
-  console.log("Forum demo running on port", PORT);
+
+app.get("/logout", (req, res) => {
+  req.session.destroy();
+  res.redirect("/");
 });
+
+app.listen(PORT, () => console.log("Server running on port", PORT));
