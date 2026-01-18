@@ -112,8 +112,8 @@ app.get("/forum", (req, res) => {
 app.post("/comment", (req, res) => {
   const text = req.body.content;
 
-  // Detection
-  if (text.includes("POST /") || text.includes("X-Smuggle") || text.includes("Content-Length:")) {
+  // On détecte l'attaque uniquement via les headers HTTP classiques injectés dans le texte
+  if (text.includes("POST /") || text.includes("Content-Length:") || text.includes("Transfer-Encoding:")) {
     console.log("⚠️");
     pendingAction = "LEAK_NEXT_LOGIN";
   }
