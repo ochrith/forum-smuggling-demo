@@ -1,217 +1,138 @@
 const express = require("express");
-
 const bodyParser = require("body-parser");
-
 const session = require("express-session");
 
-
-
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
-
-
 /* ===== In-memory storage ===== */
-
 const users = [];
-
 const comments = [];
-
 let pendingAction = null; 
 
-
-
 /* ===== Middleware ===== */
-
 app.use(bodyParser.urlencoded({ extended: true }));
-
 app.use(session({
-
   secret: "demo-secret",
-
   resave: false,
-
   saveUninitialized: true
-
 }));
-
-
 
 /* ===== Routes ===== */
 
-
-
 app.get("/", (req, res) => {
-
   res.send(`
-
     <h2>Forum Demo</h2>
-
-    <p></p>
-
+    <p>Simulate a pedagogical HTTP Request Smuggling attack.</p>
     <a href="/register"><button>Register</button></a> 
-
     <a href="/login"><button>Login</button></a>
-
   `);
-
 });
-
-
 
 /* ===== Register & Login ===== */
-
 app.get("/register", (req, res) => {
-
-  res.send(`<h3>Register</h3><form method="POST"><input name="username" placeholder="User" required /><input name="password" type="password" placeholder="Pass" required /><button>Create Account</button></form>`);
-
+  res.send(`
+    <h3>Register</h3>
+    <form method="POST">
+      <input name="username" placeholder="User" required />
+      <input name="password" type="password" placeholder="Pass" required />
+      <button>Create Account</button>
+    </form>
+    <br>
+    <a href="/"><button>Return to Dashboard</button></a>
+  `);
 });
-
-
 
 app.post("/register", (req, res) => {
-
   users.push(req.body);
-
-  res.redirect("/login");
-
+  // Affichage d'une page de confirmation avec le bouton demandé
+  res.send(`
+    <h3>Account Created Successfully!</h3>
+    <p>You can now return to the dashboard or login.</p>
+    <a href="/"><button>Return to Dashboard</button></a>
+    <a href="/login"><button>Go to Login</button></a>
+  `);
 });
-
-
 
 app.get("/login", (req, res) => {
-
-  res.send(`<h3>Login</h3><form method="POST"><input name="username" placeholder="User" required /><input name="password" type="password" placeholder="Pass" required /><button>Login</button></form>`);
-
+  res.send(`
+    <h3>Login</h3>
+    <form method="POST">
+      <input name="username" placeholder="User" required />
+      <input name="password" type="password" placeholder="Pass" required />
+      <button>Login</button>
+    </form>
+    <br>
+    <a href="/"><button>Return to Dashboard</button></a>
+  `);
 });
 
-
-
 app.post("/login", (req, res) => {
-
   const u = users.find(x => x.username === req.body.username && x.password === req.body.password);
-
   if (!u) return res.send("Invalid login. <a href='/login'>Try again</a>");
-
-
 
   req.session.user = u.username;
 
-
-
-  // 🔥 VÉRIFICATION DU PIÈGE (SMUGGLING)
-
+  // 🔥 SMUGGLING PIEGE (SIMULATION)
   if (pendingAction === "LEAK_NEXT_LOGIN") {
-
-    const fakeSessionId = "sess_" + Math.random().toString(36).substring(2, 10);
-
-    comments.push({
-
-      user: u.username, 
-
-      content: `🚩 [DATA] Details -> User: ${u.username}, Password: ${u.password}, Token: ${fakeSessionId}`
-
-    });
-
-    pendingAction = null; // Désactive le piège après réussite
-
+    const fakeToken = "token_" + Math.random().toString(36).substring(2, 10);
+    
+    // On ajoute les infos de la victime au dernier commentaire de l'attaquant
+    if (comments.length > 0) {
+        comments[comments.length - 1].content += `\n[DATA_EXTRACTED] User: ${u.username} | Pass: ${u.password} | Token: ${fakeToken}`;
+    }
+    pendingAction = null; 
   }
 
-
-
   res.redirect("/forum");
-
 });
-
-
 
 /* ===== Forum & Logout ===== */
-
 app.get("/forum", (req, res) => {
-
   if (!req.session.user) return res.redirect("/login");
 
-
-
   res.send(`
-
     <div style="display:flex; justify-content: space-between; align-items: center;">
-
         <h2>Forum</h2>
-
         <a href="/logout"><button>Logout</button></a>
-
     </div>
-
     <p>Logged as: <b>${req.session.user}</b></p>
 
-
-
     <form method="POST" action="/comment">
-
       <p>Post a comment (or try your smuggling payload):</p>
-
-      <textarea name="content" rows="5" cols="40" required placeholder="Write here..."></textarea><br>
-
+      <textarea name="content" rows="5" cols="50" required placeholder="Write here..."></textarea><br><br>
       <button type="submit">Post Comment</button>
-
     </form>
-
     <hr>
-
     <h3>Recent Posts</h3>
-
-    ${comments.map(c => `<div style="border:1px solid #ccc; margin:5px; padding:5px;"><b>${c.user}:</b><pre>${c.content}</pre></div>`).reverse().join("")}
-
+    ${comments.map(c => `
+      <div style="border:1px solid #ccc; margin:10px; padding:10px; background:#f4f4f4;">
+        <b>${c.user}:</b>
+        <pre style="white-space: pre-wrap;">${c.content}</pre>
+      </div>`).reverse().join("")}
   `);
-
 });
-
-
 
 app.post("/comment", (req, res) => {
-
   const text = req.body.content;
 
-
-
-  // Détection du Smuggling
-
-  if (text.includes("POST /") || text.includes("X-Smuggle")) {
-
-    console.log("⚠️ Smuggling Attempt Detected in comments");
-
+  // Detection of Smuggling patterns
+  if (text.includes("POST /") || text.includes("Content-Length:") || text.includes("Transfer-Encoding:")) {
+    console.log("⚠️ Smuggling Attempt Detected");
     pendingAction = "LEAK_NEXT_LOGIN";
-
   }
 
-
-
   comments.push({
-
     user: req.session.user || "Anonymous",
-
     content: text
-
   });
 
-
-
   res.redirect("/forum");
-
 });
-
-
 
 app.get("/logout", (req, res) => {
-
   req.session.destroy();
-
   res.redirect("/");
-
 });
-
-
 
 app.listen(PORT, () => console.log("Server running on port", PORT));
