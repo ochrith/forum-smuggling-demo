@@ -48,7 +48,7 @@ app.get("/", (req, res) => {
 
     <h2>Forum Demo</h2>
 
-    <p>Simulez une attaque HTTP Smuggling pédagogique.</p>
+    <p></p>
 
     <a href="/register"><button>Register</button></a> 
 
