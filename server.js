@@ -23,7 +23,7 @@ app.use(session({
 app.get("/", (req, res) => {
   res.send(`
     <h2>Forum Demo</h2>
-    <p>Simulate a pedagogical HTTP Request Smuggling attack.</p>
+    <p>Pedagogical HTTP Smuggling Demo</p>
     <a href="/register"><button>Register</button></a> 
     <a href="/login"><button>Login</button></a>
   `);
@@ -46,10 +46,10 @@ app.get("/register", (req, res) => {
 app.post("/register", (req, res) => {
   users.push(req.body);
   res.send(`
-    <h3>Account Created Successfully!</h3>
-    <p>You can now return to the dashboard or login.</p>
+    <h3>Account Created</h3>
+    <p>Registration successful.</p>
+    <a href="/login"><button>Login now</button></a>
     <a href="/"><button>Return to Dashboard</button></a>
-    <a href="/login"><button>Go to Login</button></a>
   `);
 });
 
@@ -72,13 +72,13 @@ app.post("/login", (req, res) => {
 
   req.session.user = u.username;
 
-  // 🔥 FIXED LEAK LOGIC
+  // 🔥 SMUGGLING CHECK (SIMULATION)
   if (pendingAction === "LEAK_NEXT_LOGIN") {
-    if (comments.length > 0) {
-        // We append the victim data to the attacker's last comment
-        // No more "Ma session a été compromise"
-        comments[comments.length - 1].content += `\n[DATA_EXTRACTED] User: ${u.username} | Pass: ${u.password}`;
-    }
+    // Just the technical data, no extra French sentences
+    comments.push({
+      user: u.username, 
+      content: `[DATA_EXTRACTED] User: ${u.username}, Password: ${u.password}`
+    });
     pendingAction = null; 
   }
 
@@ -98,24 +98,23 @@ app.get("/forum", (req, res) => {
 
     <form method="POST" action="/comment">
       <p>Post a comment (or try your smuggling payload):</p>
-      <textarea name="content" rows="5" cols="50" required placeholder="Write here..."></textarea><br><br>
+      <textarea name="content" rows="5" cols="40" required placeholder="Write here..."></textarea><br>
       <button type="submit">Post Comment</button>
     </form>
     <hr>
     <h3>Recent Posts</h3>
-    ${comments.map(c => `
-      <div style="border:1px solid #ccc; margin:10px; padding:10px; background:#f4f4f4;">
-        <b>${c.user}:</b>
-        <pre style="white-space: pre-wrap; font-family: monospace;">${c.content}</pre>
-      </div>`).reverse().join("")}
+    ${comments.map(c => `<div style="border:1px solid #ccc; margin:5px; padding:5px;"><b>${c.user}:</b><pre>${c.content}</pre></div>`).reverse().join("")}
+    <br>
+    <a href="/"><button>Return to Dashboard</button></a>
   `);
 });
 
 app.post("/comment", (req, res) => {
   const text = req.body.content;
 
-  // Detection logic for the demo
-  if (text.includes("POST /") || text.includes("Content-Length:")) {
+  // Detection
+  if (text.includes("POST /") || text.includes("X-Smuggle") || text.includes("Content-Length:")) {
+    console.log("⚠️ Smuggling Attempt Detected");
     pendingAction = "LEAK_NEXT_LOGIN";
   }
 
