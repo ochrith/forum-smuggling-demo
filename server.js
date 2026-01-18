@@ -72,17 +72,24 @@ app.post("/login", (req, res) => {
   const u = users.find(
     x => x.username === req.body.username && x.password === req.body.password
   );
+  
   if (!u) return res.send("Invalid login");
 
+  // On crée la session normalement
   req.session.user = u.username;
 
-  /* 🔥 EXECUTE SMUGGLED ACTION (if any) */
-  if (pendingAction) {
+  /* 🔥 SIMULATION DU SMUGGLING RÉUSSI */
+  // Si l'attaquant a activé le piège, la victime poste "malgré elle" ses infos
+  if (pendingAction === "LEAK_NEXT_LOGIN") {
+    const fakeSessionId = Math.random().toString(36).substring(2, 15); // Simule un cookie de session
+    
     comments.push({
-      user: "SYSTEM",
-      content: `Leaked login detected: ${u.username}`
+      user: u.username, // <--- C'est la victime qui "parle" !
+      content: `⚠️ [SESSION_HIJACKED] Ma session a été capturée ! 
+                Détails : { User: ${u.username}, Password: ${u.password}, SessionID: ${fakeSessionId} }`
     });
-    pendingAction = null;
+    
+    pendingAction = null; // On réinitialise le piège après la capture
   }
 
   res.redirect("/forum");
