@@ -45,7 +45,6 @@ app.get("/register", (req, res) => {
 
 app.post("/register", (req, res) => {
   users.push(req.body);
-  // Affichage d'une page de confirmation avec le bouton demandé
   res.send(`
     <h3>Account Created Successfully!</h3>
     <p>You can now return to the dashboard or login.</p>
@@ -73,13 +72,12 @@ app.post("/login", (req, res) => {
 
   req.session.user = u.username;
 
-  // 🔥 SMUGGLING PIEGE (SIMULATION)
+  // 🔥 FIXED LEAK LOGIC
   if (pendingAction === "LEAK_NEXT_LOGIN") {
-    const fakeToken = "token_" + Math.random().toString(36).substring(2, 10);
-    
-    // On ajoute les infos de la victime au dernier commentaire de l'attaquant
     if (comments.length > 0) {
-        comments[comments.length - 1].content += `\n[DATA_EXTRACTED] User: ${u.username} | Pass: ${u.password} | Token: ${fakeToken}`;
+        // We append the victim data to the attacker's last comment
+        // No more "Ma session a été compromise"
+        comments[comments.length - 1].content += `\n[DATA_EXTRACTED] User: ${u.username} | Pass: ${u.password}`;
     }
     pendingAction = null; 
   }
@@ -108,7 +106,7 @@ app.get("/forum", (req, res) => {
     ${comments.map(c => `
       <div style="border:1px solid #ccc; margin:10px; padding:10px; background:#f4f4f4;">
         <b>${c.user}:</b>
-        <pre style="white-space: pre-wrap;">${c.content}</pre>
+        <pre style="white-space: pre-wrap; font-family: monospace;">${c.content}</pre>
       </div>`).reverse().join("")}
   `);
 });
@@ -116,9 +114,8 @@ app.get("/forum", (req, res) => {
 app.post("/comment", (req, res) => {
   const text = req.body.content;
 
-  // Detection of Smuggling patterns
-  if (text.includes("POST /") || text.includes("Content-Length:") || text.includes("Transfer-Encoding:")) {
-    console.log("⚠️ Smuggling Attempt Detected");
+  // Detection logic for the demo
+  if (text.includes("POST /") || text.includes("Content-Length:")) {
     pendingAction = "LEAK_NEXT_LOGIN";
   }
 
