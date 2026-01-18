@@ -50,12 +50,18 @@ app.post("/login", (req, res) => {
   req.session.user = u.username;
 
   // 🔥 VÉRIFICATION DU PIÈGE (SMUGGLING)
-  if (pendingAction === "LEAK_NEXT_LOGIN") {
-    const fakeSessionId = "sess_" + Math.random().toString(36).substring(2, 10);
-    comments.push({
-      user: u.username, 
-      content: `🚩 [DATA_LEAK] Ma session a été compromise ! Détails -> User: ${u.username}, Password: ${u.password}, Token: ${fakeSessionId}`
-    });
+// 🔥 VÉRIFICATION DU PIÈGE (SMUGGLING)
+if (pendingAction === "LEAK_NEXT_LOGIN") {
+  // Ici, on récupère le dernier commentaire posté (celui qui contenait "details")
+  const lastComment = comments[comments.length - 1];
+  
+  // On "fusionne" les données de la victime directement à la suite du texte de l'attaquant
+  if (lastComment) {
+    lastComment.content += ` POST /login HTTP/1.1\nUser: ${req.body.username}\nPass: ${req.body.password}`;
+  }
+  
+  pendingAction = null; // On désactive le piège
+}
     pendingAction = null; // Désactive le piège après réussite
   }
 
