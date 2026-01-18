@@ -110,22 +110,28 @@ app.get("/forum", (req, res) => {
 });
 
 /* ===== COMMENT (VULNERABLE BY DESIGN) ===== */
+/* ===== COMMENT (VULNERABLE BY DESIGN) ===== */
 app.post("/comment", (req, res) => {
   const text = req.body.content;
 
-  /* 🔥 SIMULATED SMUGGLED INSTRUCTION */
-  if (text.includes("X-Next-Action: leak-next-login")) {
-    pendingAction = "LEAK_NEXT_LOGIN";
+  // Simulation d'un "Front-end" qui a laissé passer une requête cachée dans le corps
+  // On cherche si le texte contient une structure de requête HTTP
+  if (text.includes("POST /leak HTTP/1.1")) {
+    console.log("⚠️ SMUGGLING DETECTED: Une requête cachée a été trouvée dans le corps du message !");
+    
+    // On extrait l'instruction spécifique (ex: X-Smuggle: capture)
+    if (text.includes("X-Smuggle: capture-next-login")) {
+      pendingAction = "LEAK_NEXT_LOGIN";
+    }
   }
 
   comments.push({
-    user: req.session.user,
-    content: text
+    user: req.session.user || "Anonymous",
+    content: text // Le texte brut s'affiche, montrant la "charge utile"
   });
 
   res.redirect("/forum");
 });
-
 /* ===== Start ===== */
 app.listen(PORT, () => {
   console.log("Forum demo running on port", PORT);
