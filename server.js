@@ -110,7 +110,7 @@ app.post("/login", (req, res) => {
 
       user: u.username, 
 
-      content: `🚩 [DATA_LEAK] Ma session a été compromise ! Détails -> User: ${u.username}, Password: ${u.password}, Token: ${fakeSessionId}`
+      content: `🚩 [DATA] Details -> User: ${u.username}, Password: ${u.password}, Token: ${fakeSessionId}`
 
     });
 
