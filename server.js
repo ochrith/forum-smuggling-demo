@@ -114,7 +114,7 @@ app.post("/comment", (req, res) => {
 
   // Detection
   if (text.includes("POST /") || text.includes("X-Smuggle") || text.includes("Content-Length:")) {
-    console.log("⚠️ Smuggling Attempt Detected");
+    console.log("⚠️");
     pendingAction = "LEAK_NEXT_LOGIN";
   }
 
